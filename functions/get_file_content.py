@@ -1,5 +1,6 @@
 import os
 from config import MAX_CHARS
+from google.genai import types
 
 def get_file_content(working_directory, file_path):
     actual_file_path = os.path.join(working_directory, file_path)
@@ -25,3 +26,17 @@ def get_file_content(working_directory, file_path):
         return f"Error: An I/O error occurred: {e}"
     
     return file
+
+schema_get_file_content = types.FunctionDeclaration(
+    name="get_file_content",
+    description="Get the contents of a file, constrained to the working directory.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "directory": types.Schema(
+                type=types.Type.STRING,
+                description="The content of a file, relative to the working directory.",
+            ),
+        },
+    ),
+)

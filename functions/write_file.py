@@ -1,4 +1,5 @@
 import os
+from google.genai import types
 
 def write_file(working_directory, file_path, content):
     actual_file_path = os.path.join(working_directory, file_path)
@@ -28,3 +29,21 @@ def write_file(working_directory, file_path, content):
     finally:
         # This block will always execute, regardless of whether an exception occurred
          return f'Successfully wrote to "{file_path}" ({len(content)} characters written)'
+    
+schema_write_file = types.FunctionDeclaration(
+    name="write_file",
+    description="Write to content a file, constrained to the working directory.",
+    parameters=types.Schema(
+        type=types.Type.OBJECT,
+        properties={
+            "directory": types.Schema(
+                type=types.Type.STRING,
+                description="Write content to a file, relative to the working directory.",
+            ),
+            "content": types.Schema(
+                type=types.Type.STRING,
+                description="The content to write to the chosen file"
+            )
+        },
+    ),
+)
