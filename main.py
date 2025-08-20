@@ -8,7 +8,7 @@ from functions.get_files_info import schema_get_files_info
 from functions.get_file_content import schema_get_file_content
 from functions.run_python_file import schema_run_python_file
 from functions.write_file import schema_write_file
-
+from functions.call_function import call_function
 
 
 def main():
@@ -69,20 +69,25 @@ def generate_content(client, messages, user_prompt, system_prompt, available_fun
             tools=[available_functions],
             system_instruction=system_prompt),
     )
-
+    verbose = False
     if "--verbose" in user_prompt:
         print(f"User prompt: {user_prompt}")
         #In addition to printing the text response, print the number of tokens consumed by the interaction
         print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
         print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+        verbose = True
     
     # Check if there are function calls (note: it's a list, not None check)
     if response.function_calls:
         # Iterate through all function calls
         for function_call_part in response.function_calls:
-            print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+            results = call_function(function_call_part, verbose)
+            if not results.parts[0].function_response.response:
+                raise Exception("No valid response from function call")
+            elif results.parts[0].function_response.response and verbose==True:
+                print(f"-> {results.parts[0].function_response.response}")
         return  # Don't print text response if there are function calls
-    print(response.text)
+
 
 if __name__ == "__main__":
     main()
