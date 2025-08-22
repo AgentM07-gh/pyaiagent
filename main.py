@@ -36,18 +36,17 @@ def main():
     ]
     #print(f"messages: {messages}")
 
-    system_prompt = """
-    You are a helpful AI coding agent.
+    system_prompt = """You are a helpful AI coding agent. When a user asks a question, actively explore and investigate using your available tools to find the complete answer.
 
-    When a user asks a question or makes a request, make a function call plan. You can perform the following operations:
+You can:
+- List files and directories
+- Read file contents  
+- Execute Python files with optional arguments
+- Write or overwrite files
 
-    - List files and directories
-    - Read file contents
-    - Execute Python files with optional arguments
-    - Write or overwrite files
+Don't just plan what you would do - actually do it! Use your tools to explore the codebase thoroughly until you have enough information to provide a complete answer.
 
-    All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
-    """
+All paths should be relative to the working directory."""
 
     available_functions = types.Tool(
     function_declarations=[
@@ -57,8 +56,22 @@ def main():
         schema_write_file,
     ]
     )
+    i=0
+    while i < 20:
+        
+        try:
+            response = generate_content(client, messages, user_prompt, system_prompt, available_functions)
+            #print(f"DEBUG: response type is {type(response)}")
+            #print(f"DEBUG: response value is {response}")
+        except Exception as e:
+            print(f"An unexpected error occurred: {e}")
+            continue
+        if response.text and not response.function_calls:
+            print(response.text)
+            break
+        i+=1
 
-    generate_content(client, messages, user_prompt, system_prompt, available_functions)
+
 
 
 def generate_content(client, messages, user_prompt, system_prompt, available_functions):
@@ -69,6 +82,11 @@ def generate_content(client, messages, user_prompt, system_prompt, available_fun
             tools=[available_functions],
             system_instruction=system_prompt),
     )
+
+    if response.candidates:
+        for candidate in response.candidates:
+            messages.append(candidate.content)    
+            
     verbose = False
     if "--verbose" in user_prompt:
         print(f"User prompt: {user_prompt}")
@@ -76,18 +94,34 @@ def generate_content(client, messages, user_prompt, system_prompt, available_fun
         print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
         print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
         verbose = True
-    
+
+    if response.function_calls:
+        for function_call in response.function_calls:
+            results = call_function(function_call, verbose)
+            messages.append(results)
+            if not results.parts[0].function_response.response:
+                raise Exception("No valid response from function call")
+            elif results.parts[0].function_response.response and verbose==True:
+                print (f"-> {results.parts[0].function_response.response}")
+        return response
+    return response
+    '''
     # Check if there are function calls (note: it's a list, not None check)
     if response.function_calls:
         # Iterate through all function calls
         for function_call_part in response.function_calls:
             results = call_function(function_call_part, verbose)
+            content = types.Content(
+                role = 'tool',
+                parts=[types.Part.from_text(text=results.parts[0].function_response.response)]
+            )
+            messages.append(content)
             if not results.parts[0].function_response.response:
                 raise Exception("No valid response from function call")
             elif results.parts[0].function_response.response and verbose==True:
-                print(f"-> {results.parts[0].function_response.response}")
-        return  # Don't print text response if there are function calls
-
+                print (f"-> {results.parts[0].function_response.response}")
+        return  results# Don't print text response if there are function calls
+    '''
 
 if __name__ == "__main__":
     main()
